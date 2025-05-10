@@ -1,0 +1,91 @@
+#TIMEHORIZON
+T = 8760;
+
+#NODE SOLAR_PV
+#PARAMETERS
+capex = 546;  
+lifetime = 25;
+annualised_capex = 38.74;
+omc=0.91;
+capacity_factor = import "CFAndhra.csv";
+#VARIABLES
+internal: capacity;
+internal: investment_cost;
+external: electricity[T];
+#CONSTRAINTS
+capacity >= 0;
+electricity[t] >= 0;
+electricity[t] <= capacity_factor[mod(t, 8760)] * capacity;
+investment_cost == (annualised_capex + omc) * capacity;
+#OBJECTIVES
+min investment: investment_cost;
+
+#NODE WIND_PLANTS_ONSHORE
+#PARAMETERS
+capex = 1128.4; 
+lifetime = 25;
+annualised_capex = 80.0628;
+omc=2.73;
+capacity_factor = import "CFAndhrawind.csv";
+#VARIABLES
+internal: capacity;
+internal: investment_cost;
+external: electricity[T];
+#CONSTRAINTS
+capacity >= 0;
+electricity[t] >= 0;
+electricity[t] <= capacity_factor[mod(t, 8760)] * capacity;
+investment_cost ==  (annualised_capex + omc) * capacity;
+#OBJECTIVES
+min investment: investment_cost;
+
+#NODE BATTERY
+#PARAMETERS
+capex = 136.5; 
+lifetime = 15;
+annualised_capex = 13.1507;
+omc=2.275;
+efficiency = 0.9;
+#VARIABLES
+internal: capacity;
+internal: investment_cost;
+internal: energy[T];
+external: charge[T];
+external: discharge[T];
+#CONSTRAINTS
+capacity >= 0;
+energy[t] >= 0;
+charge[t] >= 0;
+discharge[t] >= 0;
+energy[t] <= capacity;
+energy[t+1] == energy[t] + efficiency * charge[t] - discharge[t] / efficiency;
+energy[0] == energy[T-1];
+investment_cost ==  (annualised_capex + omc) * capacity;
+#OBJECTIVES
+min: investment_cost;
+
+#NODE DEMAND
+#PARAMETERS
+demand = import "AndhraL.csv";
+#VARIABLES
+external: consumption[T];
+#CONSTRAINTS
+consumption[t] == demand[mod(t, 8760)];
+
+#NODE DISTRIBUTION
+#PARAMETERS
+electricity_price = 4.55;
+#VARIABLES
+internal: operating_cost[T];
+external: power_import[T];
+#CONSTRAINTS
+power_import[t] >= 0;
+operating_cost[t] == electricity_price * power_import[t];
+#OBJECTIVES
+min: operating_cost[t];
+
+#HYPEREDGE POWER_BALANCE
+#CONSTRAINTS
+SOLAR_PV.electricity[t] + BATTERY.discharge[t] + DISTRIBUTION.power_import[t] + WIND_PLANTS_ONSHORE.electricity[t]  == BATTERY.charge[t] + DEMAND.consumption[t];
+
+
